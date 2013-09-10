@@ -1,0 +1,161 @@
+<!DOCTYPE HTML>
+<html>
+    <head>
+        <title>Astro-Panic!</title>
+        <script type="text/javascript" src="js/lib/jquery-1.7.1.js"></script>
+        <script type="text/javascript" src="js/lib/RequestAnimationFrame.js"></script>        
+        <script type="text/javascript" src="js/lib/SimpleJavascriptInheritance.js"></script>
+        <script type="text/javascript" src="js/Player.js"></script> 
+        <script type="text/javascript" src="js/Enemy.js"></script>      
+        <script type="text/javascript" src="js/Bullet.js"></script> 
+        <script type="text/javascript" src="js/PlayerInput.js"></script>        
+        <style>
+            canvas { border: 1px solid #000; background-color: #000; }
+        </style>
+<script type="text/javascript">
+$(function() {
+    ASTRO = {};
+    ASTRO.WIDTH = 640;
+    ASTRO.HEIGHT = 480;
+    
+    var input = playerInput();
+    var canvas = document.getElementById('canvas');
+    canvas.width = ASTRO.WIDTH;
+    canvas.height = ASTRO.HEIGHT;
+    var width = canvas.width;
+    var height = canvas.height;
+    var ctx = canvas.getContext('2d');
+    
+    var player = new Player(ctx);
+    var bullet;
+    var isFiring = false;
+    var level = 1;
+    var enemies = [];
+    var NONE = -1;
+    var enemyToRemove = NONE;
+    var score = 0;
+    var hiscore = 0;
+    
+    var playLevel = function() {
+        for (var i=1; i<level+3; i++) {
+            enemies.push(new Enemy(ctx, level))
+        }
+    };
+    
+    playLevel();
+    
+    document.addEventListener('mousemove', function(event) {
+        player.x = event.x;
+        if (player.x < 0) {
+            player.x = 0;
+        }
+        if (player.x > ASTRO.WIDTH - player.width/2) {
+            player.x = ASTRO.WIDTH - player.width/2;
+        }        
+    });
+
+    document.addEventListener('mousedown', function(event) {
+        if (! isFiring) {
+            placeBullet();
+            isFiring = true;
+        }
+    });
+    
+    var placeBullet = function() {
+        bullet = new Bullet(ctx, player.getDrawX()+41, player.getDrawY()-20);
+    };    
+    
+    var distance = function(from, to) {
+        var distX = from.x - to.x;
+        var distY = from.y - to.y;
+        // Pyt theorem. Square slower?
+        return distX * distX + distY * distY;
+    };
+    
+    var die = function() {
+        player.dead = true;
+        $('#gameover').html("GAME OVER!");
+    };
+    
+    var killEnemy = function(enemy) {
+        enemy.dead = true;
+        isFiring = false;
+        score += enemy.level * (4 - Math.floor(enemy.y/100)) * 1000;
+        $('#score').html(score);
+    };
+        
+    var update = function() {
+        if (! player.dead) {
+            input.update();
+            player.update();
+            
+            var enemyLength = enemies.length;
+            while (enemyLength--) {
+                var enemy = enemies[enemyLength];
+                if (! enemy.dead) {
+                    enemy.update();
+                    // If collide with player. 41 x 41 + 50 x 50 = 4180
+                    if (distance(enemy, player) < 5400) {
+                        die();
+                    }
+                    // If collide enemy (84 px) collide with bullet (20 px) = 10 * 10 + 41 * 41 = 100 + 1681 
+                    if (isFiring) {
+                        if (distance(enemy, bullet) < 1781) {
+                            killEnemy(enemy);
+                        }
+                    }                
+                } else {
+                    enemy.width += 2;
+                    enemy.height += 2;  
+                    if (enemy.width > 120) {
+                        enemyToRemove = enemyLength;
+                    }
+                }
+            }
+            
+            if (enemyToRemove != NONE) {
+                enemies.splice(enemyToRemove, 1);
+                enemyToRemove = NONE;
+                if (enemies.length == 0) {
+                    level++;
+                    playLevel();
+                }
+            }
+            
+            if (isFiring) {
+                bullet.update();
+                if (bullet.y < 0) {
+                    bullet = undefined;
+                    isFiring = false;
+                }
+            }
+        }
+    };
+    
+    var draw = function() {
+        ctx.clearRect(0, 0, width, height);    
+                
+        player.draw();
+        
+        var enemyLength = enemies.length;        
+        while (enemyLength--) {
+            enemies[enemyLength].draw();
+        }
+        
+        if (isFiring) {
+            bullet.draw();
+        }        
+    };
+    
+    setInterval(function() {
+        update();
+        draw();
+    }, 1000/60);
+});
+</script>
+    </head>
+    <body>
+        <pre>Astro-Panic! Score: <span id="score">0</span> <span id="gameover"></span></pre>
+        <canvas id="canvas"></canvas>
+    </body>
+</html>
